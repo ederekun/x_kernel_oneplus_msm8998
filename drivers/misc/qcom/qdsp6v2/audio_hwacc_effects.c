@@ -18,7 +18,7 @@
 #include "audio_utils_aio.h"
 #include <sound/msm-audio-effects-q6-v2.h>
 
-#define MAX_CHANNELS_SUPPORTED		8
+#define MAX_CHANNELS_SUPPORTED		32
 #define WAIT_TIMEDOUT_DURATION_SECS	1
 
 struct q6audio_effects {
@@ -177,7 +177,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 
 		mutex_lock(&effects->lock);
 
-		effects->config.output.num_channels = 8;
+		effects->config.output.num_channels = MAX_CHANNELS_SUPPORTED;
 		effects->config.output.bits_per_sample = 24;
 
 		rc = q6asm_open_read_write_v2(effects->ac,
@@ -227,9 +227,12 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		pr_debug("%s: enc: sample_rate: %d, num_channels: %d\n",
 			 __func__, effects->config.input.sample_rate,
 			effects->config.input.num_channels);
-		rc = q6asm_enc_cfg_blk_pcm(effects->ac,
-					   effects->config.input.sample_rate,
-					   effects->config.input.num_channels);
+		rc = q6asm_enc_cfg_blk_pcm_format_support_v5(effects->ac,
+						effects->config.input.sample_rate,
+						effects->config.input.num_channels,
+						16, 16, /* Set default values */
+						ASM_LITTLE_ENDIAN,
+						DEFAULT_QF);
 		if (rc < 0) {
 			pr_err("%s: pcm read block config failed\n", __func__);
 			rc = -EINVAL;
@@ -239,10 +242,13 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			 __func__, effects->config.output.sample_rate,
 			effects->config.output.num_channels,
 			effects->config.output.bits_per_sample);
-		rc = q6asm_media_format_block_pcm_format_support(
+		rc = q6asm_media_format_block_multi_ch_pcm_v5(
 				effects->ac, effects->config.output.sample_rate,
-				effects->config.output.num_channels,
-				effects->config.output.bits_per_sample);
+				effects->config.output.num_channels, true, NULL,
+				effects->config.output.bits_per_sample,
+				effects->config.output.bits_per_sample > 16 ? 32 : 16, /* For 24_LE and 32_LE */
+				ASM_LITTLE_ENDIAN,
+				DEFAULT_QF);
 		if (rc < 0) {
 			pr_err("%s: pcm write format block config failed\n",
 				__func__);
