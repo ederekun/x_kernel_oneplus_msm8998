@@ -177,8 +177,10 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 
 		mutex_lock(&effects->lock);
 
-		effects->config.output.num_channels = MAX_CHANNELS_SUPPORTED;
-		effects->config.output.bits_per_sample = 24;
+		effects->config.output.num_channels = max(effects->config.output.num_channels, 
+					8U);
+		effects->config.output.bits_per_sample = max(effects->config.output.bits_per_sample, 
+					24U);
 
 		rc = q6asm_open_read_write_v2(effects->ac,
 					FORMAT_LINEAR_PCM,
@@ -230,9 +232,11 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		rc = q6asm_enc_cfg_blk_pcm_format_support_v5(effects->ac,
 						effects->config.input.sample_rate,
 						effects->config.input.num_channels,
-						16, 16, /* Set default values */
+						effects->config.input.bits_per_sample, 
+						effects->config.input.bits_per_sample > 16 ? 32 : 16, /* For 24_LE and 32_LE */
 						ASM_LITTLE_ENDIAN,
-						DEFAULT_QF);
+						effects->config.input.bits_per_sample > 16 ? Q31 : Q15 /* For 24_LE and 32_LE */
+						);
 		if (rc < 0) {
 			pr_err("%s: pcm read block config failed\n", __func__);
 			rc = -EINVAL;
@@ -248,7 +252,8 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 				effects->config.output.bits_per_sample,
 				effects->config.output.bits_per_sample > 16 ? 32 : 16, /* For 24_LE and 32_LE */
 				ASM_LITTLE_ENDIAN,
-				DEFAULT_QF);
+				effects->config.output.bits_per_sample > 16 ? Q31 : Q15 /* For 24_LE and 32_LE */
+				);
 		if (rc < 0) {
 			pr_err("%s: pcm write format block config failed\n",
 				__func__);
