@@ -54,22 +54,9 @@ static void msm_custom_audio_effects(struct q6audio_effects *effects)
 	int i, ret = 0;
 
 	struct msm_ae_params ae_data[] = {
-		/* Bass boost */
-		{ AUDPROC_MODULE_ID_BASS_BOOST, AUDPROC_PARAM_ID_BASS_BOOST_ENABLE,
-			BASS_BOOST_ENABLE_PARAM_SZ, &msm_effects->bass_boost.enable_flag, 1 },
-		{ AUDPROC_MODULE_ID_BASS_BOOST, AUDPROC_PARAM_ID_BASS_BOOST_STRENGTH,
-			BASS_BOOST_STRENGTH_PARAM_SZ, &msm_effects->bass_boost.strength, 500 },
-
 		/* PBE */
 		{ AUDPROC_MODULE_ID_PBE, AUDPROC_PARAM_ID_PBE_ENABLE,
 			PBE_ENABLE_PARAM_SZ, &msm_effects->pbe.enable_flag, 1 },
-
-		/* Virtualizer */
-		{ AUDPROC_MODULE_ID_VIRTUALIZER, AUDPROC_PARAM_ID_VIRTUALIZER_ENABLE,
-			VIRTUALIZER_ENABLE_PARAM_SZ, &msm_effects->virtualizer.enable_flag, 1 },
-		{ AUDPROC_MODULE_ID_VIRTUALIZER, AUDPROC_PARAM_ID_VIRTUALIZER_STRENGTH,
-			VIRTUALIZER_STRENGTH_PARAM_SZ, &msm_effects->virtualizer.strength, 200 },
-
 		{}
 	};
 
@@ -182,6 +169,10 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		effects->config.output.bits_per_sample = max(effects->config.output.bits_per_sample, 
 					24U);
 
+		/* Fallback to 16 bits just in case it has not been defined */
+		effects->config.input.bits_per_sample = max(effects->config.input.bits_per_sample, 
+					16U);
+
 		rc = q6asm_open_read_write_v2(effects->ac,
 					FORMAT_LINEAR_PCM,
 					FORMAT_MULTI_CHANNEL_LINEAR_PCM,
@@ -263,11 +254,6 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 
 		audio_effects_init_pp(effects->ac);
 		msm_custom_audio_effects(effects);
-
-		rc = msm_audio_effects_enable_extn(effects->ac, &effects->audio_effects, 1);
-		if (rc < 0)
-			pr_err("%s: Enable msm audio effect extn failed ret=%d\n",
-				__func__, rc);
 
 		rc = q6asm_run(effects->ac, 0x00, 0x00, 0x00);
 		if (!rc)
