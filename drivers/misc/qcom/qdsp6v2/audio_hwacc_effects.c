@@ -109,6 +109,17 @@ static void audio_effects_deinit_pp(struct audio_client *ac)
 	}
 }
 
+static void audio_effects_set_custom_config(struct msm_hwacc_effects_config *config)
+{
+	config->output.num_channels = (unsigned int)MAX_CHANNELS_SUPPORTED;
+	config->output.bits_per_sample = max(config->output.bits_per_sample, 
+				24U);
+
+	/* Fallback to 16 bits just in case it has not been defined */
+	config->input.bits_per_sample = max(config->input.bits_per_sample, 
+				16U);
+}
+
 static void audio_effects_event_handler(uint32_t opcode, uint32_t token,
 				 uint32_t *payload,  void *priv)
 {
@@ -164,14 +175,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 
 		mutex_lock(&effects->lock);
 
-		effects->config.output.num_channels = max(effects->config.output.num_channels, 
-					8U);
-		effects->config.output.bits_per_sample = max(effects->config.output.bits_per_sample, 
-					24U);
-
-		/* Fallback to 16 bits just in case it has not been defined */
-		effects->config.input.bits_per_sample = max(effects->config.input.bits_per_sample, 
-					16U);
+		audio_effects_set_custom_config(&effects->config);
 
 		rc = q6asm_open_read_write_v2(effects->ac,
 					FORMAT_LINEAR_PCM,
